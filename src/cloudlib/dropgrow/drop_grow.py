@@ -187,7 +187,7 @@ def rlderiv(var_vec,deriv_vec,cloud_tup,nvars=3):
 
 if __name__ == "__main__":
 
-    from pabthlib import Path
+    from pathlib import Path
     import importlib.resources as ir
     import pprint
     pp = pprint.PrettyPrinter(indent=4)

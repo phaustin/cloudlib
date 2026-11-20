@@ -9,6 +9,26 @@ authors = [
   { name="Philip Austin", email="paustin@eoas.ubc.ca" },
 ]
 dynamic = ["version"]
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+  "pandas",
+  "pytz",
+  "requests",
+  "beautifulsoup4",   # soundings.wyominglib (imported as bs4)
+  "psutil",           # killprocs / killjobs scripts
+  "netCDF4",          # pyncdump script
+]
+
+[project.optional-dependencies]
+# installed by Read the Docs (see .readthedocs.yaml)
+docs = [
+  "sphinx>=7.4,<8",
+  "myst-parser>=3.0,<4",
+  "sphinx-rtd-theme",
+]
 
 [project.scripts]
 killprocs = "cloudlib.utils.killprocs:main"
@@ -46,6 +66,9 @@ ghp-import = "*"
 pytz = "*"
 jupyter-book = "<2"
 mystmd = "*"
+sphinx_rtd_theme = ">=3.1.0,<4"
+sphinx = ">=7.4.7,<8"
+myst-parser = ">=3.0.1,<4"
 
 [tool.pixi.pypi-dependencies]
 cloudlib = { path = ".", editable = true }
