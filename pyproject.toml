@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling","hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cloudlib"
+description = "atsc405 code"
+authors = [
+  { name="Philip Austin", email="paustin@eoas.ubc.ca" },
+]
+dynamic = ["version"]
+
+[project.scripts]
+killprocs = "cloudlib.utils.killprocs:main"
+killjobs = "cloudlib.utils.killjobs:main"
+pyncdump = "cloudlib.utils.ncdump:main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/cloudlib/_version.py"
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+authors = ["Phil Austin <paustin@eos.ubc.ca>"]
+name = "cloudlib"
+preview = ["pixi-build"]
+
+[tool.pixi.dependencies]
+python = "*"
+numpy = "*"
+scipy = "*"
+pip = "*"
+zarr = "*"
+git = "*"
+jupyterlab = "*"
+jupyterlab-myst = "*"
+jupytext = "*"
+pythia-datasets = "*"
+metpy = "*"
+netcdf4 = "*"
+hatch = "*"
+ghp-import = "*"
+pytz = "*"
+jupyter-book = "<2"
+mystmd = "*"
+
+[tool.pixi.pypi-dependencies]
+cloudlib = { path = ".", editable = true }
+
+
