@@ -1,0 +1,370 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cloudlib.skewT.fullskew &mdash; cloudlib</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=ce990535"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            cloudlib
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../full_listing.html">Full module listing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">cloudlib</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">cloudlib.skewT.fullskew</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for cloudlib.skewT.fullskew</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">   construct a skewT - ln P diagram with rsat and thetaes lines</span>
+<span class="sd">"""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">importlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">reload</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mpl</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.ticker</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ticks</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..thermo.thermfn</span><span class="w"> </span><span class="kn">import</span> <span class="n">convertTempToSkew</span><span class="p">,</span> <span class="n">convertSkewToTemp</span><span class="p">,</span> <span class="n">find_theta</span><span class="p">,</span> <span class="n">find_thetaet</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..thermo.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">c</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..thermo.thermfn</span><span class="w"> </span><span class="kn">import</span> <span class="n">find_rsat</span>
+
+<div class="viewcode-block" id="make_default_labels">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.skewT.fullskew.make_default_labels">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_default_labels</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    set up the contour labels for temperature, rs, theta and theate::</span>
+
+<span class="sd">       rsLabels = [0.1, 0.25, 0.5, 1, 2, 3] + list(range(4, 28, 2))</span>
+<span class="sd">       thetaLabels = list(range(200, 390, 10))</span>
+<span class="sd">       thetaeLabels = np.arange(250, 410, 10)</span>
+<span class="sd">       tempLabels = range(-40, 50, 10)</span>
+
+<span class="sd">    override this function and pass to makeSkewWet to change the countour intervals</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    None</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    tempLabels,rsLabels, thetaLabels, thetaeLabels: tuple</span>
+<span class="sd">      tuple of lists with contour labels</span>
+
+<span class="sd">    """</span>
+    <span class="n">rsLabels</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">28</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> <span class="c1">#+ [26,  28]</span>
+    <span class="n">thetaLabels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">390</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+    <span class="n">thetaeLabels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">250</span><span class="p">,</span> <span class="mi">410</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="n">tempLabels</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="mi">40</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tempLabels</span><span class="p">,</span><span class="n">rsLabels</span><span class="p">,</span> <span class="n">thetaLabels</span><span class="p">,</span> <span class="n">thetaeLabels</span></div>
+
+
+<div class="viewcode-block" id="find_corners">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.skewT.fullskew.find_corners">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_corners</span><span class="p">(</span><span class="n">temps</span><span class="p">,</span> <span class="n">press</span><span class="o">=</span><span class="mf">1.e3</span><span class="p">,</span> <span class="n">skew</span><span class="o">=</span><span class="mf">30.</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">        convert a pair of temperatures into skew plotting coordinates at a constant pressure level</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+
+<span class="sd">        temps : [float]</span>
+<span class="sd">                xaxis corner temperatures (degC)</span>
+
+<span class="sd">        press : float</span>
+<span class="sd">                pressure level for skew conversion</span>
+
+<span class="sd">        skew  : float</span>
+<span class="sd">                coefficient to use in the tempToSkew conversion</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+
+<span class="sd">        corners : [float]</span>
+<span class="sd">                x axis corners in plotting coordinates</span>
+
+<span class="sd">      """</span>
+    <span class="n">corners</span> <span class="o">=</span> <span class="n">convertTempToSkew</span><span class="p">(</span><span class="n">temps</span><span class="p">,</span> <span class="n">press</span><span class="p">,</span> <span class="n">skew</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">corners</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="makeSkewWet">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.skewT.fullskew.makeSkewWet">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">makeSkewWet</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">corners</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">skew</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span><span class="n">label_fun</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""       </span>
+<span class="sd">      draw a skew-T lnP diagram on an axis</span>
+
+<span class="sd">      Parameters</span>
+<span class="sd">      ----------</span>
+<span class="sd">      </span>
+<span class="sd">      ax : matplotlib.axes</span>
+<span class="sd">           matplotlib figure axis</span>
+
+<span class="sd">      corners : [float]</span>
+<span class="sd">                x axis temperature limits (degC)</span>
+
+<span class="sd">      skew : float</span>
+
+<span class="sd">             adjustable coefficient to make isotherms slope</span>
+<span class="sd">             compared to adiabats</span>
+
+<span class="sd">      label_fun: function</span>
+<span class="sd">         optional function to generate contour intervals, see make_default_labels</span>
+
+<span class="sd">      Returns</span>
+<span class="sd">      -------</span>
+<span class="sd">      </span>
+<span class="sd">      ax : matplotlib.axes</span>
+<span class="sd">           the modified figure axis</span>
+
+<span class="sd">      """</span>
+    <span class="c1">#</span>
+    <span class="c1"># turn off tick labels until the las plot</span>
+    <span class="c1">#</span>
+    <span class="k">if</span> <span class="n">corners</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">corners</span><span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">25</span><span class="p">,</span><span class="mi">25</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">label_fun</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">label_fun</span> <span class="o">=</span> <span class="n">make_default_labels</span>
+        
+    <span class="n">tempLabels</span><span class="p">,</span><span class="n">rsLabels</span><span class="p">,</span> <span class="n">thetaLabels</span><span class="p">,</span> <span class="n">thetaeLabels</span> <span class="o">=</span> <span class="n">label_fun</span><span class="p">()</span>    
+    <span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">ticks</span><span class="o">.</span><span class="n">NullFormatter</span><span class="p">())</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">ticks</span><span class="o">.</span><span class="n">NullFormatter</span><span class="p">())</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_minor_formatter</span><span class="p">(</span><span class="n">ticks</span><span class="o">.</span><span class="n">NullFormatter</span><span class="p">())</span>
+    <span class="n">yplot</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">190</span><span class="p">,</span> <span class="o">-</span><span class="mi">6</span><span class="p">)</span>  <span class="c1">#</span>
+    <span class="n">xcorners</span> <span class="o">=</span> <span class="n">find_corners</span><span class="p">(</span><span class="n">corners</span><span class="p">,</span> <span class="n">skew</span><span class="o">=</span><span class="n">skew</span><span class="p">)</span>
+    <span class="n">xplot</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">xcorners</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xcorners</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">45</span><span class="p">))</span>
+    <span class="n">pvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">yplot</span><span class="p">)</span>
+    <span class="n">tvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">xplot</span><span class="p">)</span>
+    <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">pvals</span><span class="p">,</span> <span class="n">tvals</span><span class="p">])</span>
+    <span class="n">theTheta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+    <span class="n">the_rsat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+    <span class="n">theThetae</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">pvals</span><span class="p">,</span> <span class="n">tvals</span><span class="p">])</span>
+
+    <span class="c1"># lay down a reference grid that labels xplot,yplot points </span>
+    <span class="c1"># in the new (skewT-lnP) coordinate system .</span>
+    <span class="c1"># Each value of the temp matrix holds the actual (data)</span>
+    <span class="c1"># temperature label (in deg C)  of the xplot, yplot coordinate.</span>
+    <span class="c1"># pairs. The transformation is given by W&amp;H 3.56, p. 78.  Note</span>
+    <span class="c1"># that there is a sign difference, because rather than</span>
+    <span class="c1"># taking y= -log(P) like W&amp;H, I take y= +log(P) and</span>
+    <span class="c1"># then reverse the y axis</span>
+
+    <span class="k">for</span> <span class="n">presshPa</span> <span class="ow">in</span> <span class="n">yplot</span><span class="p">:</span>  <span class="c1">#loop over pressures</span>
+        <span class="k">for</span> <span class="n">skewed</span> <span class="ow">in</span> <span class="n">xplot</span><span class="p">:</span>  <span class="c1">#loop over skewed xcoords</span>
+            <span class="c1"># Note that we don't have to transform the y</span>
+            <span class="c1"># coordinate, as it is still pressure.</span>
+            <span class="n">iInd</span> <span class="o">=</span> <span class="n">yplot</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">presshPa</span><span class="p">)</span>
+            <span class="n">jInd</span> <span class="o">=</span> <span class="n">xplot</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">skewed</span><span class="p">)</span>
+            <span class="n">temp</span><span class="p">[</span><span class="n">iInd</span><span class="p">,</span> <span class="n">jInd</span><span class="p">]</span> <span class="o">=</span> <span class="n">convertSkewToTemp</span><span class="p">(</span><span class="n">skewed</span><span class="p">,</span> <span class="n">presshPa</span><span class="p">,</span> <span class="n">skew</span><span class="p">)</span>
+            <span class="n">Tk</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">Tc</span> <span class="o">+</span> <span class="n">temp</span><span class="p">[</span><span class="n">iInd</span><span class="p">,</span> <span class="n">jInd</span><span class="p">]</span>
+            <span class="n">pressPa</span> <span class="o">=</span> <span class="n">presshPa</span> <span class="o">*</span> <span class="mf">100.</span>
+            <span class="n">theTheta</span><span class="p">[</span><span class="n">iInd</span><span class="p">,</span> <span class="n">jInd</span><span class="p">]</span> <span class="o">=</span> <span class="n">find_theta</span><span class="p">(</span><span class="n">Tk</span><span class="p">,</span> <span class="n">pressPa</span><span class="p">)</span>
+            <span class="n">rs</span> <span class="o">=</span> <span class="n">find_rsat</span><span class="p">(</span><span class="n">Tk</span><span class="p">,</span> <span class="n">pressPa</span><span class="p">)</span>
+            <span class="n">the_rsat</span><span class="p">[</span><span class="n">iInd</span><span class="p">,</span> <span class="n">jInd</span><span class="p">]</span> <span class="o">=</span> <span class="n">rs</span>
+            <span class="n">theThetae</span><span class="p">[</span><span class="n">iInd</span><span class="p">,</span> <span class="n">jInd</span><span class="p">]</span> <span class="o">=</span> <span class="n">find_thetaet</span><span class="p">(</span><span class="n">Tk</span><span class="p">,</span><span class="n">rs</span><span class="p">,</span><span class="n">Tk</span><span class="p">,</span> <span class="n">pressPa</span><span class="p">)</span>
+    <span class="c1">#</span>
+    <span class="c1"># Contour the temperature matrix.</span>
+    <span class="c1">#</span>
+
+    <span class="c1"># First, make sure that all plotted lines are solid.</span>
+    <span class="n">mpl</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">'contour.negative_linestyle'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'solid'</span>
+    
+    <span class="n">tempLabels</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">xplot</span><span class="p">,</span> <span class="n">yplot</span><span class="p">,</span> <span class="n">temp</span><span class="p">,</span> <span class="n">tempLabels</span><span class="p">,</span> \
+                          <span class="n">colors</span><span class="o">=</span><span class="s1">'k'</span><span class="p">)</span>
+    <span class="n">tempLabels</span><span class="o">=</span><span class="n">tempLabels</span><span class="o">.</span><span class="n">levels</span>
+    <span class="c1">#</span>
+    <span class="c1"># contour theta</span>
+    <span class="c1">#</span>
+    <span class="c1">#thetaLabels = list(range(200, 390, 10))</span>
+    <span class="n">thetaLevs</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">xplot</span><span class="p">,</span> <span class="n">yplot</span><span class="p">,</span> <span class="n">theTheta</span><span class="p">,</span> <span class="n">thetaLabels</span><span class="p">,</span> \
+                      <span class="n">colors</span><span class="o">=</span><span class="s1">'b'</span><span class="p">)</span>
+    <span class="n">thetaLabels</span><span class="o">=</span><span class="n">thetaLevs</span><span class="o">.</span><span class="n">levels</span>
+    <span class="c1">#</span>
+    <span class="c1"># contour rsat</span>
+    <span class="c1">#</span>
+    <span class="c1">#rsLabels = [0.1, 0.25, 0.5, 1, 2, 3] + list(range(4, 28, 2)) #+ [26,  28]</span>
+    <span class="n">rsLevs</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">xplot</span><span class="p">,</span>
+                        <span class="n">yplot</span><span class="p">,</span>
+                        <span class="n">the_rsat</span> <span class="o">*</span> <span class="mf">1.e3</span><span class="p">,</span>
+                        <span class="n">levels</span><span class="o">=</span><span class="n">rsLabels</span><span class="p">,</span>
+                        <span class="n">colors</span><span class="o">=</span><span class="s1">'g'</span><span class="p">,</span>
+                        <span class="n">linewidths</span><span class="o">=</span><span class="mf">.5</span><span class="p">)</span>
+    <span class="n">rsLabels</span><span class="o">=</span><span class="n">rsLevs</span><span class="o">.</span><span class="n">levels</span>
+    <span class="c1">#thetaeLabels = np.arange(250, 410, 10)</span>
+    <span class="n">thetaeLevs</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">xplot</span><span class="p">,</span> <span class="n">yplot</span><span class="p">,</span> <span class="n">theThetae</span><span class="p">,</span> <span class="n">thetaeLabels</span><span class="p">,</span> \
+                      <span class="n">colors</span><span class="o">=</span><span class="s1">'r'</span><span class="p">)</span>
+    <span class="n">thetaeLabels</span><span class="o">=</span><span class="n">thetaeLevs</span><span class="o">.</span><span class="n">levels</span>
+    <span class="c1">#</span>
+    <span class="c1"># Customize the plot</span>
+    <span class="c1">#</span>
+    <span class="c1"># plt.setp(ax.get_xticklabels(), weight='bold')</span>
+    <span class="c1"># plt.setp(ax.get_yticklabels(), weight='bold')</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Crop image to a more usable size</span>
+    <span class="c1">#</span>
+
+    <span class="c1">#</span>
+    <span class="c1"># Create line labels</span>
+    <span class="c1">#</span>
+    <span class="n">fntsz</span> <span class="o">=</span> <span class="mi">9</span>  <span class="c1"># Handle for 'fontsize' of the line label.</span>
+    <span class="n">ovrlp</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Handle for 'inline'. Any integer other than 0</span>
+    <span class="c1"># creates a white space around the label.</span>
+
+    <span class="c1">#tempLevs.clabel(inline=ovrlp, inline_spacing=0,fmt='%2d', fontsize=fntsz,use_clabeltext=True)</span>
+    <span class="n">thetaLevs</span><span class="o">.</span><span class="n">clabel</span><span class="p">(</span><span class="n">inline</span><span class="o">=</span><span class="n">ovrlp</span><span class="p">,</span>
+                     <span class="n">inline_spacing</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                     <span class="n">fmt</span><span class="o">=</span><span class="s1">'</span><span class="si">%3d</span><span class="s1">'</span><span class="p">,</span>
+                     <span class="n">fontsize</span><span class="o">=</span><span class="n">fntsz</span><span class="p">,</span>
+                     <span class="n">use_clabeltext</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">rsLevs</span><span class="o">.</span><span class="n">clabel</span><span class="p">(</span><span class="n">inline</span><span class="o">=</span><span class="n">ovrlp</span><span class="p">,</span>
+                  <span class="n">inline_spacing</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                  <span class="n">fmt</span><span class="o">=</span><span class="s1">'</span><span class="si">%3.2g</span><span class="s1">'</span><span class="p">,</span>
+                  <span class="n">fontsize</span><span class="o">=</span><span class="n">fntsz</span><span class="p">,</span>
+                  <span class="n">use_clabeltext</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">thetaeLevs</span><span class="o">.</span><span class="n">clabel</span><span class="p">(</span><span class="n">thetaeLabels</span><span class="p">,</span>
+                      <span class="n">inline_spacing</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                      <span class="n">inline</span><span class="o">=</span><span class="n">ovrlp</span><span class="p">,</span>
+                      <span class="n">fmt</span><span class="o">=</span><span class="s1">'</span><span class="si">%3d</span><span class="s1">'</span><span class="p">,</span>
+                      <span class="n">fontsize</span><span class="o">=</span><span class="n">fntsz</span><span class="p">,</span>
+                      <span class="n">use_clabeltext</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">invert_yaxis</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s1">'log'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">ticks</span><span class="o">.</span><span class="n">NullFormatter</span><span class="p">())</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">xaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">ticks</span><span class="o">.</span><span class="n">NullFormatter</span><span class="p">())</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_minor_formatter</span><span class="p">(</span><span class="n">ticks</span><span class="o">.</span><span class="n">NullFormatter</span><span class="p">())</span>
+    <span class="c1">#ax.figure.canvas.draw()</span>
+    <span class="c1"># #ax.figure.canvas.draw()</span>
+    <span class="c1"># xcorners = find_corners(corners, skew=skew)</span>
+    <span class="n">majorFormatter</span> <span class="o">=</span> <span class="n">ticks</span><span class="o">.</span><span class="n">FormatStrFormatter</span><span class="p">(</span><span class="s1">'</span><span class="si">%d</span><span class="s1">'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_major_formatter</span><span class="p">(</span><span class="n">majorFormatter</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">set_minor_formatter</span><span class="p">(</span><span class="n">majorFormatter</span><span class="p">)</span>
+    <span class="c1"># locs = np.array(range(100, 1100, 100))</span>
+    <span class="c1"># labels = locs</span>
+    <span class="c1"># ax.set_yticks(locs)</span>
+    <span class="c1"># ax.set_yticklabels(labels)  # Conventionally labels semilog graph.</span>
+    <span class="c1"># ax.set_ybound((200, 1000))</span>
+    <span class="n">TempTickLabels</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+
+    <span class="n">TempTickCoords</span> <span class="o">=</span> <span class="n">TempTickLabels</span>
+    <span class="n">skewTickCoords</span> <span class="o">=</span> <span class="n">convertTempToSkew</span><span class="p">(</span><span class="n">TempTickCoords</span><span class="p">,</span> <span class="mf">1.e3</span><span class="p">,</span> <span class="n">skew</span><span class="p">)</span>
+
+    <span class="c1"># skewLimits = convertTempToSkew([-15, 35], 1.e3, skew)</span>
+    <span class="c1"># ax.axis([skewLimits[0], skewLimits[1], 300, 1.e3])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">ylim</span><span class="o">=</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">300</span><span class="p">),</span> <span class="n">xlim</span><span class="o">=</span><span class="n">xcorners</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">skewTickCoords</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">TempTickLabels</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span><span class="n">which</span><span class="o">=</span><span class="s1">'both'</span><span class="p">)</span>
+
+    <span class="c1"># ax.set_title('skew T - lnp chart')</span>
+    <span class="c1"># ax.set_ylabel('pressure (hPa)')</span>
+    <span class="c1"># ax.set_xlabel('temperature (deg C)')</span>
+    
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">'debug title'</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">ax</span><span class="p">,</span> <span class="n">skew</span></div>
+
+
+
+<div class="viewcode-block" id="plot_test">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.skewT.fullskew.plot_test">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_test</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">      create test plot when module is run</span>
+<span class="sd">    """</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">corners</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">25</span><span class="p">,</span> <span class="mi">30</span><span class="p">]</span>
+    <span class="n">ax</span><span class="p">,</span> <span class="n">skew</span> <span class="o">=</span> <span class="n">makeSkewWet</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">corners</span><span class="o">=</span><span class="n">corners</span><span class="p">,</span> <span class="n">skew</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+    <span class="n">figname</span> <span class="o">=</span> <span class="s1">'plot_test_wet.pdf'</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">print_figure</span><span class="p">(</span><span class="n">figname</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'created </span><span class="si">{}</span><span class="s1">'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">figname</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ax</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">plot_test</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Phil Austin.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

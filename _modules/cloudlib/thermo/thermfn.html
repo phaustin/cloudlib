@@ -1,0 +1,1200 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cloudlib.thermo.thermfn &mdash; cloudlib</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=ce990535"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            cloudlib
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../full_listing.html">Full module listing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">cloudlib</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">cloudlib.thermo.thermfn</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for cloudlib.thermo.thermfn</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""</span>
+<span class="sd">  Module for functions to calculate vapor pressure,</span>
+<span class="sd">  thetae, etc.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">doctest</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">c</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">rootfinder</span> <span class="k">as</span> <span class="n">rf</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.testing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ntest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.rootfinder</span><span class="w"> </span><span class="kn">import</span> <span class="n">BracketError</span>
+
+<div class="viewcode-block" id="find_lv">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_lv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_lv</span><span class="p">(</span><span class="n">temp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculates the temperature dependent</span>
+<span class="sd">    enthalpy of evaporation</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    temp : float or array_like</span>
+<span class="sd">           Temperature of parcel (K).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    lv : float or list</span>
+<span class="sd">         entalpy of evaporation</span>
+
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+
+<span class="sd">    &gt;&gt;&gt; find_lv(293.)</span>
+<span class="sd">    2547052.0</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    Day 13 moist static energy notes</span>
+<span class="sd">    """</span>
+    <span class="n">lv</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">lv0</span> <span class="o">-</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">cpv</span> <span class="o">-</span> <span class="n">c</span><span class="o">.</span><span class="n">cl</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">temp</span> <span class="o">-</span> <span class="n">c</span><span class="o">.</span><span class="n">Tc</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">lv</span></div>
+
+
+
+<div class="viewcode-block" id="find_esat">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_esat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_esat</span><span class="p">(</span><span class="n">temp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculates the saturation water vapor pressure over a flat</span>
+<span class="sd">    surface of water at temperature 'temp'.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    temp : float or array_like</span>
+<span class="sd">           Temperature of parcel (K).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    esatOut : float or list</span>
+<span class="sd">        Saturation water vapour pressure (Pa).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+
+<span class="sd">    &gt;&gt;&gt; find_esat(300.)</span>
+<span class="sd">    3534.5196668891358</span>
+<span class="sd">    &gt;&gt;&gt; find_esat([300., 310.])</span>
+<span class="sd">    array([ 3534.5197,  6235.5322])</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Emanuel 4.4.14 p. 117</span>
+<span class="sd">      </span>
+<span class="sd">    """</span>
+    <span class="c1"># determine if temp has been input as a vector</span>
+    <span class="n">is_scalar</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">):</span>
+        <span class="n">is_scalar</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+    <span class="n">Tc</span> <span class="o">=</span> <span class="n">temp</span> <span class="o">-</span> <span class="mf">273.15</span>
+    <span class="n">esatOut</span> <span class="o">=</span> <span class="mf">611.2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">17.67</span> <span class="o">*</span> <span class="n">Tc</span> <span class="o">/</span> <span class="p">(</span><span class="n">Tc</span> <span class="o">+</span> <span class="mf">243.5</span><span class="p">))</span>
+    <span class="c1"># if temp is a vector</span>
+    <span class="k">if</span> <span class="n">is_scalar</span><span class="p">:</span>
+        <span class="n">esatOut</span> <span class="o">=</span> <span class="n">esatOut</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">esatOut</span></div>
+
+
+
+<div class="viewcode-block" id="find_resid_rsat">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_resid_rsat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_resid_rsat</span><span class="p">(</span><span class="n">Tguess</span><span class="p">,</span> <span class="n">rsat</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+
+<span class="sd">   Calculate residual between target rsat and guess to</span>
+<span class="sd">   rootfind saturation temperature for constant rsat   </span>
+<span class="sd">   </span>
+<span class="sd">   Parameters</span>
+<span class="sd">   ----------</span>
+<span class="sd">      </span>
+<span class="sd">   Tguess: float</span>
+<span class="sd">           (K) guess temperature from rootfinder </span>
+
+<span class="sd">   rsat:   float</span>
+<span class="sd">           (kg/kg) target saturation mixing ratio</span>
+<span class="sd">            </span>
+<span class="sd">   press:  float</span>
+<span class="sd">           (hPa) pressure level for rootfind</span>
+
+<span class="sd">   Returns</span>
+<span class="sd">   ------- </span>
+<span class="sd">   </span>
+<span class="sd">   residual: float</span>
+<span class="sd">             (kg/kg) differnce between target and guess rsat</span>
+
+<span class="sd">   Reference</span>
+<span class="sd">   ---------</span>
+<span class="sd">      </span>
+<span class="sd">   see thompkins 2.20</span>
+<span class="sd">     </span>
+<span class="sd">    """</span>
+    <span class="n">esat</span> <span class="o">=</span> <span class="n">find_esat</span><span class="p">(</span><span class="n">Tguess</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.01</span>  <span class="c1">#convert to hPa</span>
+    <span class="n">residual</span> <span class="o">=</span> <span class="n">rsat</span> <span class="o">-</span> <span class="n">c</span><span class="o">.</span><span class="n">eps</span> <span class="o">*</span> <span class="n">esat</span> <span class="o">/</span> <span class="p">(</span><span class="n">press</span> <span class="o">-</span> <span class="n">esat</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">residual</span></div>
+
+
+
+<div class="viewcode-block" id="find_rsat">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_rsat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_rsat</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">  </span>
+<span class="sd">   calculate the saturation mixing ratio (kg/kg) at (temp,press)</span>
+
+<span class="sd">   Parameters</span>
+<span class="sd">   --------- </span>
+<span class="sd">       </span>
+<span class="sd">   temp: float</span>
+<span class="sd">         temperature (K) </span>
+
+<span class="sd">   press: float</span>
+<span class="sd">         pressure (Pa)</span>
+
+<span class="sd">   Returns</span>
+<span class="sd">   -------</span>
+<span class="sd">       </span>
+<span class="sd">    rsat: float</span>
+<span class="sd">          satruation mixing ratio  (kg/kg)</span>
+<span class="sd">    """</span>
+    <span class="n">esat</span> <span class="o">=</span> <span class="n">find_esat</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+    <span class="n">rsat</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">eps</span> <span class="o">*</span> <span class="n">esat</span> <span class="o">/</span> <span class="p">(</span><span class="n">press</span> <span class="o">-</span> <span class="n">esat</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">rsat</span></div>
+
+
+
+<div class="viewcode-block" id="tinvert_rsat">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.tinvert_rsat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tinvert_rsat</span><span class="p">(</span><span class="n">Tstart</span><span class="p">,</span> <span class="n">rsat</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    rootfind the temp that produces rsat at press.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    Tstart : float</span>
+<span class="sd">           temperature (K)</span>
+
+<span class="sd">    rsat : float</span>
+<span class="sd">           saturation mixing ratio (kg/kg)</span>
+
+<span class="sd">    press : float </span>
+<span class="sd">            pressure (hPa)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    Tdew : temperature (K) at with air is saaturated</span>
+<span class="sd">    """</span>
+    <span class="n">brackets</span> <span class="o">=</span> <span class="n">rf</span><span class="o">.</span><span class="n">find_interval</span><span class="p">(</span><span class="n">find_resid_rsat</span><span class="p">,</span> <span class="n">Tstart</span><span class="p">,</span> <span class="n">rsat</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="n">temp</span> <span class="o">=</span> <span class="n">rf</span><span class="o">.</span><span class="n">fzero</span><span class="p">(</span><span class="n">find_resid_rsat</span><span class="p">,</span> <span class="n">brackets</span><span class="p">,</span> <span class="n">rsat</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">temp</span></div>
+
+
+
+<div class="viewcode-block" id="find_theta">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_theta">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_theta</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">press</span><span class="p">,</span> <span class="n">rv</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Computes potential temperature.</span>
+<span class="sd">    Allows for either temp,p or T,p,rv as inputs.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    temp : float</span>
+<span class="sd">        Temperature (K).</span>
+
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+<span class="sd">    rv : float, optional</span>
+<span class="sd">        Vapour mixing ratio (kg,kg). Can be appended as an argument</span>
+<span class="sd">        in order to increase precision of returned 'theta' value.</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    thetaOut : float</span>
+<span class="sd">        Potential temperature (K).</span>
+
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+
+<span class="sd">    NameError</span>
+<span class="sd">        If an incorrect number of arguments is provided.</span>
+<span class="sd">    </span>
+<span class="sd">    </span>
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Emanuel p. 111 4.2.11</span>
+
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; find_theta(300., 8.e4) # Only 'temp' and 'press' are input.</span>
+<span class="sd">    319.72798180767984</span>
+<span class="sd">    &gt;&gt;&gt; find_theta(300., 8.e4, rv=0.001) # 'temp', 'press', and 'rv' all input.</span>
+<span class="sd">    319.72309475657323</span>
+<span class="sd">    </span>
+<span class="sd">    """</span>
+
+    <span class="n">power</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">Rd</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">cpd</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">-</span> <span class="mf">0.24</span> <span class="o">*</span> <span class="n">rv</span><span class="p">)</span>
+    <span class="n">thetaOut</span> <span class="o">=</span> <span class="n">temp</span> <span class="o">*</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">p0</span> <span class="o">/</span> <span class="n">press</span><span class="p">)</span><span class="o">**</span><span class="n">power</span>
+    <span class="k">return</span> <span class="n">thetaOut</span></div>
+
+
+
+<div class="viewcode-block" id="make_dry_adiabat">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.make_dry_adiabat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_dry_adiabat</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">press</span><span class="p">,</span> <span class="n">rv</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    make_dry_adiabat(theta, press)</span>
+
+<span class="sd">    Calculates the temperature given potential temperatures </span>
+<span class="sd">    along a specified pressure profile.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Theta : float</span>
+<span class="sd">        Potential Temperature (K)</span>
+<span class="sd">    press : float or array-like</span>
+<span class="sd">        Pressure (Pa).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----</span>
+<span class="sd">    tempOut : float or array-like</span>
+<span class="sd">        Converted temperature (degC).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; make_dry_adiabat(300., 100000)</span>
+<span class="sd">    300.</span>
+<span class="sd">    """</span>
+    <span class="n">power</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">Rd</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">cpd</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">-</span> <span class="mf">0.24</span> <span class="o">*</span> <span class="n">rv</span><span class="p">)</span>
+    <span class="n">tempOut</span> <span class="o">=</span> <span class="n">theta</span> <span class="o">*</span> <span class="p">(</span><span class="n">press</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">p0</span><span class="p">)</span> <span class="o">**</span> <span class="n">power</span>
+    <span class="k">return</span> <span class="n">tempOut</span></div>
+
+
+
+<div class="viewcode-block" id="convertTempToSkew">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.convertTempToSkew">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">convertTempToSkew</span><span class="p">(</span><span class="n">Temp</span><span class="p">,</span> <span class="n">press</span><span class="p">,</span> <span class="n">skew</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    convertTempToSkew(Temp, press, skew)</span>
+
+<span class="sd">    Determines the transformed temperature in plotting coordinates.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Temp : float</span>
+<span class="sd">        Temperature (degC)</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (hPa).</span>
+<span class="sd">    skew : int</span>
+<span class="sd">        Designated skew factor of temperature.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----</span>
+<span class="sd">    tempOut : float</span>
+<span class="sd">        Converted temperature (degC).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; convertTempToSkew(30., 800. , 30)</span>
+<span class="sd">    -170.53835183003781</span>
+<span class="sd">    </span>
+<span class="sd">    """</span>
+
+    <span class="n">tempOut</span> <span class="o">=</span> <span class="n">Temp</span> <span class="o">-</span> <span class="n">skew</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">press</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tempOut</span></div>
+
+
+
+<div class="viewcode-block" id="convertSkewToTemp">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.convertSkewToTemp">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">convertSkewToTemp</span><span class="p">(</span><span class="n">xcoord</span><span class="p">,</span> <span class="n">press</span><span class="p">,</span> <span class="n">skew</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    convertSkewToTemp(xcoord, press, skew)</span>
+
+<span class="sd">    Determines temperature from knowledge of a plotting coordinate</span>
+<span class="sd">    system and corresponding plot skew.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    xcoord : int</span>
+<span class="sd">        X coordinate in temperature plotting coordinates.</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (hPa).</span>
+<span class="sd">    skew : int</span>
+<span class="sd">        Skew of a given coordinate system.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----</span>
+<span class="sd">    Temp : float</span>
+<span class="sd">        Converted temperature in degC.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; convertSkewToTemp(-170.53835183003781, 800., 30)</span>
+<span class="sd">    30.0</span>
+<span class="sd">    </span>
+<span class="sd">    """</span>
+    <span class="n">Temp</span> <span class="o">=</span> <span class="n">xcoord</span> <span class="o">+</span> <span class="n">skew</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">press</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Temp</span></div>
+
+
+
+<div class="viewcode-block" id="find_thetaes">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_thetaes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_thetaes</span><span class="p">(</span><span class="n">Temp</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculates the true equivalent potential temperature of an air</span>
+<span class="sd">    parcel assuming saturation</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Temp : float</span>
+<span class="sd">        Temperature (K).</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----</span>
+<span class="sd">    thetaep : float</span>
+<span class="sd">        Pseudo equivalent potential temperature (K).</span>
+
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Empirical fit to Emanuel 4.7.8 -- neglects heat</span>
+<span class="sd">    capacity of liquid water and ice</span>
+
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Emanuel 4.7.9 p. 132</span>
+
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+
+<span class="sd">    &gt;&gt;&gt; find_thetaes(300., 8.e4)</span>
+<span class="sd">    399.53931578042267</span>
+<span class="sd">    """</span>
+    <span class="c1"># The parcel is saturated - prohibit supersaturation with Td &gt; T.</span>
+    <span class="n">Td</span> <span class="o">=</span> <span class="n">Temp</span>
+    <span class="n">rv</span> <span class="o">=</span> <span class="n">find_rsat</span><span class="p">(</span><span class="n">Td</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="n">thetaep</span> <span class="o">=</span> <span class="n">find_thetaet</span><span class="p">(</span><span class="n">Td</span><span class="p">,</span> <span class="n">rv</span><span class="p">,</span> <span class="n">Temp</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="c1">#</span>
+    <span class="c1"># peg this at 450 so rootfinder won't blow up</span>
+    <span class="c1">#</span>
+    <span class="k">if</span> <span class="n">thetaep</span> <span class="o">&gt;</span> <span class="mf">450.</span><span class="p">:</span>
+        <span class="n">thetaep</span> <span class="o">=</span> <span class="mi">450</span>
+    <span class="k">return</span> <span class="n">thetaep</span></div>
+
+
+
+<div class="viewcode-block" id="find_Tv">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_Tv">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_Tv</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">rvap</span><span class="p">,</span> <span class="n">rl</span><span class="o">=</span><span class="mf">0.</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculate the density (virtual) temperature</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    temp : float or np.array</span>
+<span class="sd">        temperatue (K).</span>
+
+<span class="sd">    rvap: float or np.array</span>
+<span class="sd">        vapor  mixing ratio (kg/kg)</span>
+
+<span class="sd">    rl : float or np.array</span>
+<span class="sd">        liquid mixing ratio (kg/kg)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    Tv : float or np.array</span>
+<span class="sd">        density temperature (K).</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Thompkins eq. 2.38</span>
+
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; find_Tv(300.,1.e-2)# Parcel is unsaturated.</span>
+<span class="sd">    301.866</span>
+<span class="sd">    &gt;&gt;&gt; find_Tv(280.,1.e-2, 1.e-3)  #Parcel is saturated</span>
+<span class="sd">    281.4616</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">temp</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">eps</span> <span class="o">*</span> <span class="n">rvap</span> <span class="o">-</span> <span class="n">rl</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="find_thetaet">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_thetaet">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_thetaet</span><span class="p">(</span><span class="n">Td</span><span class="p">,</span> <span class="n">rt</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculates the true equivalent potential temperature of a</span>
+<span class="sd">    parcel from its entropy</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    Td : float</span>
+<span class="sd">        Dewpoint temperature (K).</span>
+
+<span class="sd">    rt: float</span>
+<span class="sd">        total water mixing ratio (kg/kg)</span>
+
+<span class="sd">    T : float</span>
+<span class="sd">        Temperature (K).</span>
+
+<span class="sd">    p : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    thetaetOut : float</span>
+<span class="sd">        true equivalent potential temperature (K).</span>
+
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Emanuel 4.5.11 p. 120 or my Day 10 equivalent potential temperature notes</span>
+
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; find_thetaet(300.,1.e-2, 280., 8.e4) # Parcel is saturated.</span>
+<span class="sd">    319.3543617606212</span>
+<span class="sd">    &gt;&gt;&gt; find_thetaet(280.,1.e-2, 300., 8.e4)  #Parcel is unsaturated</span>
+<span class="sd">    342.52792353970784</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">Td</span> <span class="o">&lt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="c1">#parcel is unsaturated</span>
+        <span class="p">[</span><span class="n">Tlcl</span><span class="p">,</span> <span class="n">plcl</span><span class="p">]</span> <span class="o">=</span> <span class="n">find_lcl</span><span class="p">(</span><span class="n">Td</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">find_rsat</span><span class="p">(</span><span class="n">Td</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1">#parcel is saturated -- prohibit supersaturation with Td &gt; T</span>
+        <span class="n">Td</span> <span class="o">=</span> <span class="n">T</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">find_rsat</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">find_esat</span><span class="p">(</span><span class="n">Td</span><span class="p">)</span>
+    <span class="n">esat</span> <span class="o">=</span> <span class="n">find_esat</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+    <span class="n">vapor_term</span> <span class="o">=</span> <span class="n">rv</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">Rv</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">e</span> <span class="o">/</span> <span class="n">esat</span><span class="p">)</span>
+    <span class="c1">#</span>
+    <span class="c1"># turn off water vapor if not in liquid water saturation</span>
+    <span class="c1"># domain</span>
+    <span class="c1">#</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">vapor_term</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">e</span> <span class="o">&gt;</span> <span class="mf">1.e5</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">esat</span> <span class="o">&gt;</span> <span class="mf">1.e5</span><span class="p">)</span> \
+       <span class="ow">or</span> <span class="p">(</span><span class="n">e</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">esat</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">vapor_term</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="c1">#print('thetaet: ',e,esat,T,Td,p,vapor_term)</span>
+    <span class="n">pd</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">e</span>  <span class="c1"># dry</span>
+    <span class="n">cp</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">cpd</span> <span class="o">+</span> <span class="n">rt</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">cl</span>
+    <span class="n">lv</span> <span class="o">=</span> <span class="n">find_lv</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">cp</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="o">-</span> <span class="n">c</span><span class="o">.</span><span class="n">Rd</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">pd</span><span class="p">)</span> <span class="o">+</span> <span class="n">lv</span> <span class="o">*</span> <span class="n">rv</span> <span class="o">/</span> <span class="n">T</span> <span class="o">-</span> <span class="n">vapor_term</span>
+    <span class="n">logthetae</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="n">c</span><span class="o">.</span><span class="n">Rd</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">p0</span><span class="p">))</span> <span class="o">/</span> <span class="n">cp</span>
+    <span class="n">thetaet</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">logthetae</span><span class="p">)</span>
+    <span class="c1">#</span>
+    <span class="c1"># peg this at 450 so rootfinder won't blow up</span>
+    <span class="c1">#</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">thetaet</span> <span class="o">&gt;</span> <span class="mf">450.</span><span class="p">):</span>
+        <span class="n">thetaet</span> <span class="o">=</span> <span class="mi">450</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">thetaet</span> <span class="o">&lt;</span> <span class="mf">100.</span><span class="p">):</span>
+        <span class="n">thetaet</span> <span class="o">=</span> <span class="mf">100.</span>
+    <span class="k">return</span> <span class="n">thetaet</span></div>
+
+
+
+<div class="viewcode-block" id="find_thetaep">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_thetaep">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_thetaep</span><span class="p">(</span><span class="n">Td</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculates the pseudo equivalent potential temperature of a</span>
+<span class="sd">    parcel using Bolton's formula</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    Td : float</span>
+<span class="sd">        Dewpoint temperature (K).</span>
+
+<span class="sd">    T : float</span>
+<span class="sd">        Temperature (K).</span>
+
+<span class="sd">    p : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    thetaepOut : float</span>
+<span class="sd">        Pseudo equivalent potential temperature (K).</span>
+
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Note that the pseudo equivalent potential temperature of an air</span>
+<span class="sd">    parcel is not a conserved variable.</span>
+
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Emanuel 4.7.9 p. 132</span>
+
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    # note difference between true thetae (find_thetaes and find_thetaet)</span>
+<span class="sd">    # and pseudo-adiabat (find_thetaep)</span>
+
+<span class="sd">    &gt;&gt;&gt; find_thetaep(280., 300., 8.e4) # Parcel is unsaturated.</span>
+<span class="sd">    344.99830738253371</span>
+
+<span class="sd">    &gt;&gt;&gt; rt = find_rsat(280, 8.e4)</span>
+<span class="sd">    &gt;&gt;&gt; find_thetaet(280., rt, 300., 8.e4) # Parcel is unsaturated.</span>
+<span class="sd">    342.93068265625539</span>
+
+
+<span class="sd">    &gt;&gt;&gt; find_thetaep(280., 280., 8.e4) # Parcel is saturated.</span>
+<span class="sd">    321.5302927767795</span>
+
+
+<span class="sd">    &gt;&gt;&gt; find_thetaes(280., 8.e4) # Parcel is saturated.</span>
+<span class="sd">    319.72687107952828</span>
+
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">Td</span> <span class="o">&lt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="c1">#parcel is unsaturated</span>
+        <span class="p">[</span><span class="n">Tlcl</span><span class="p">,</span> <span class="n">plcl</span><span class="p">]</span> <span class="o">=</span> <span class="n">find_lcl</span><span class="p">(</span><span class="n">Td</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">find_rsat</span><span class="p">(</span><span class="n">Td</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1">#parcel is saturated -- prohibit supersaturation with Td &gt; T</span>
+        <span class="n">Tlcl</span> <span class="o">=</span> <span class="n">T</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">find_rsat</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+
+    <span class="n">thetaval</span> <span class="o">=</span> <span class="n">find_theta</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rv</span><span class="p">)</span>
+    <span class="n">thetaepOut</span> <span class="o">=</span> <span class="n">thetaval</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">rv</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">0.81</span> <span class="o">*</span> <span class="n">rv</span><span class="p">)</span> \
+                                   <span class="o">*</span> <span class="p">(</span><span class="mf">3376.</span> <span class="o">/</span> <span class="n">Tlcl</span> <span class="o">-</span> <span class="mf">2.54</span><span class="p">))</span>
+    <span class="c1">#</span>
+    <span class="c1"># peg this at 450 so rootfinder won't blow up</span>
+    <span class="c1">#</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">thetaepOut</span> <span class="o">&gt;</span> <span class="mf">450.</span><span class="p">):</span>
+        <span class="n">thetaepOut</span> <span class="o">=</span> <span class="mi">450</span>
+
+    <span class="k">return</span> <span class="n">thetaepOut</span></div>
+
+
+
+<div class="viewcode-block" id="find_lcl">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_lcl">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_lcl</span><span class="p">(</span><span class="n">Td</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    find_lcl(Td, T, p)</span>
+
+<span class="sd">    Finds the temperature and pressure at the lifting condensation</span>
+<span class="sd">    level (LCL) of an air parcel.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Td : float</span>
+<span class="sd">        Dewpoint temperature (K).</span>
+
+<span class="sd">    T : float</span>
+<span class="sd">        Temperature (K).</span>
+
+<span class="sd">    p : float</span>
+<span class="sd">        Pressure (Pa)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    Tlcl : float</span>
+<span class="sd">        Temperature at the LCL (K).</span>
+<span class="sd">    plcl : float</span>
+<span class="sd">        Pressure at the LCL (Pa).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+
+<span class="sd">    NameError</span>
+<span class="sd">        If the air is saturated at a given Td and T (ie. Td &gt;= T)</span>
+<span class="sd">    </span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+
+<span class="sd">    &gt;&gt;&gt; [Tlcl, plcl] =  find_lcl(280., 300., 8.e4)</span>
+<span class="sd">    &gt;&gt;&gt; print(np.array([Tlcl, plcl]))</span>
+<span class="sd">    [   275.7625  59518.9287]</span>
+<span class="sd">    &gt;&gt;&gt; find_lcl(300., 280., 8.e4)</span>
+<span class="sd">    Traceback (most recent call last):</span>
+<span class="sd">        ...</span>
+<span class="sd">    NameError: parcel is saturated at this pressure</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Emanuel 4.6.24 p. 130 and 4.6.22 p. 129</span>
+<span class="sd">    </span>
+<span class="sd">    """</span>
+    <span class="n">hit</span> <span class="o">=</span> <span class="n">Td</span> <span class="o">&gt;=</span> <span class="n">T</span>
+    <span class="k">if</span> <span class="n">hit</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s1">'parcel is saturated at this pressure'</span><span class="p">)</span>
+
+    <span class="n">e</span> <span class="o">=</span> <span class="n">find_esat</span><span class="p">(</span><span class="n">Td</span><span class="p">)</span>
+    <span class="n">ehPa</span> <span class="o">=</span> <span class="n">e</span> <span class="o">*</span> <span class="mf">0.01</span>
+    <span class="c1">#Bolton's formula requires hPa.</span>
+    <span class="c1"># This is is an empircal fit from for LCL temp from Bolton, 1980 MWR.</span>
+    <span class="n">Tlcl</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2840.</span> <span class="o">/</span> <span class="p">(</span><span class="mf">3.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">ehPa</span><span class="p">)</span> <span class="o">-</span> <span class="mf">4.805</span><span class="p">))</span> <span class="o">+</span> <span class="mf">55.</span>
+
+    <span class="n">r</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">eps</span> <span class="o">*</span> <span class="n">e</span> <span class="o">/</span> <span class="p">(</span><span class="n">p</span> <span class="o">-</span> <span class="n">e</span><span class="p">)</span>
+    <span class="n">cp</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">cpd</span> <span class="o">+</span> <span class="n">r</span> <span class="o">*</span> <span class="n">c</span><span class="o">.</span><span class="n">cpv</span>
+    <span class="n">logplcl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">+</span> <span class="n">cp</span> <span class="o">/</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">Rd</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">r</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">eps</span><span class="p">))</span> <span class="o">*</span> \
+              <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">Tlcl</span> <span class="o">/</span> <span class="n">T</span><span class="p">)</span>
+    <span class="n">plcl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">logplcl</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Tlcl</span><span class="p">,</span> <span class="n">plcl</span></div>
+
+
+
+<div class="viewcode-block" id="find_rvrl">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_rvrl">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_rvrl</span><span class="p">(</span><span class="n">Temp</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Computes the vapour and liquid water mixing ratios.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Temp : float</span>
+<span class="sd">        Temperature (K).</span>
+<span class="sd">    rT : float</span>
+<span class="sd">        Total water mixing ratio (kg/kg).</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----</span>
+<span class="sd">    rv : float</span>
+<span class="sd">        Water vapour mixing ratio (kg/kg).</span>
+<span class="sd">    rl : float</span>
+<span class="sd">        Liquid water mixing ratio (kg/kg).</span>
+
+
+<span class="sd">    Raises</span>
+<span class="sd">    ----</span>
+<span class="sd">    AssertionError</span>
+<span class="sd">        If any of the inputs are in vector form.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+
+<span class="sd">    &gt;&gt;&gt; print(np.array(find_rvrl(250., 0.01, 8.e4))*1.e3)</span>
+<span class="sd">    [ 0.7433  9.2567]</span>
+
+<span class="sd">    &gt;&gt;&gt; print(np.array(find_rvrl(305., 0.01, 8.e4))*1.e3)</span>
+<span class="sd">    [ 10.   0.]</span>
+
+<span class="sd">    """</span>
+    <span class="n">rsVal</span> <span class="o">=</span> <span class="n">find_rsat</span><span class="p">(</span><span class="n">Temp</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">rsVal</span> <span class="o">&gt;</span> <span class="n">rT</span><span class="p">:</span>  <span class="c1">#unsaturated</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">rT</span>
+        <span class="n">rl</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1">#saturated</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="n">rsVal</span>
+        <span class="n">rl</span> <span class="o">=</span> <span class="n">rT</span> <span class="o">-</span> <span class="n">rv</span>
+    <span class="k">return</span> <span class="n">rv</span><span class="p">,</span> <span class="n">rl</span></div>
+
+
+
+<div class="viewcode-block" id="find_Tmoist">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_Tmoist">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_Tmoist</span><span class="p">(</span><span class="n">thetaE0</span><span class="p">,</span> <span class="n">press</span><span class="p">,</span> <span class="n">use_theta</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculates the temperatures along a moist adiabat.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    thetaE0 : float</span>
+<span class="sd">        Initial equivalent potential temperature (K).</span>
+<span class="sd">    press : float or array_like</span>
+<span class="sd">        Pressure (Pa).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Temp : float or array_like</span>
+<span class="sd">        Temperature (K) of thetaE0 adiabat at 'press'.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; np.array([find_Tmoist(300., 8.e4)])</span>
+<span class="sd">    array([ 271.0638])</span>
+<span class="sd">    &gt;&gt;&gt; find_Tmoist(330., 8.e4)</span>
+<span class="sd">    283.7226584032411</span>
+<span class="sd">    """</span>
+    <span class="n">Tstart</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">Tc</span>
+    <span class="k">if</span> <span class="n">use_theta</span> <span class="ow">and</span> <span class="n">press</span> <span class="o">&lt;</span> <span class="mf">150.e2</span><span class="p">:</span>
+        <span class="n">diff_fun</span> <span class="o">=</span> <span class="n">theta_diff</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">diff_fun</span> <span class="o">=</span> <span class="n">thetaes_diff</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">brackets</span> <span class="o">=</span> <span class="n">rf</span><span class="o">.</span><span class="n">find_interval</span><span class="p">(</span><span class="n">diff_fun</span><span class="p">,</span> <span class="n">Tstart</span><span class="p">,</span> <span class="n">thetaE0</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+        <span class="n">Temp</span> <span class="o">=</span> <span class="n">rf</span><span class="o">.</span><span class="n">fzero</span><span class="p">(</span><span class="n">diff_fun</span><span class="p">,</span> <span class="n">brackets</span><span class="p">,</span> <span class="n">thetaE0</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">BracketError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"couldn't find bracket: debug info: "</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">extra_info</span><span class="p">)</span>
+        <span class="n">Temp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="k">return</span> <span class="n">Temp</span></div>
+
+
+
+<div class="viewcode-block" id="thetaes_diff">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.thetaes_diff">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">thetaes_diff</span><span class="p">(</span><span class="n">Tguess</span><span class="p">,</span> <span class="n">thetaE0</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    use true thetae (thetaes) for rootfinder</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Tguess : float</span>
+<span class="sd">        Trial temperature value (K).</span>
+<span class="sd">    ws0 : float</span>
+<span class="sd">        Initial saturated mixing ratio (kg/kg).</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    theDiff : float</span>
+<span class="sd">        The difference between the values of 'thetaEguess' and</span>
+<span class="sd">        'thetaE0'. This difference is then compared to the tolerance</span>
+<span class="sd">        allowed by brenth.</span>
+<span class="sd">        </span>
+<span class="sd">    """</span>
+    <span class="n">thetaes_guess</span> <span class="o">=</span> <span class="n">find_thetaes</span><span class="p">(</span><span class="n">Tguess</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+
+    <span class="c1">#when this result is small enough we're done</span>
+    <span class="n">the_diff</span> <span class="o">=</span> <span class="n">thetaes_guess</span> <span class="o">-</span> <span class="n">thetaE0</span>
+    <span class="k">return</span> <span class="n">the_diff</span></div>
+
+
+
+<div class="viewcode-block" id="theta_diff">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.theta_diff">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">theta_diff</span><span class="p">(</span><span class="n">Tguess</span><span class="p">,</span> <span class="n">theta0</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    use  theta for rootfinder</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Tguess : float</span>
+<span class="sd">        Trial temperature value (K).</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    theDiff : float</span>
+<span class="sd">        The difference between the values of 'thetaEguess' and</span>
+<span class="sd">        'thetaE0'. This difference is then compared to the tolerance</span>
+<span class="sd">        allowed by brenth.</span>
+<span class="sd">        </span>
+<span class="sd">    """</span>
+    <span class="n">theta_guess</span> <span class="o">=</span> <span class="n">find_theta</span><span class="p">(</span><span class="n">Tguess</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+
+    <span class="c1">#when this result is small enough we're done</span>
+    <span class="n">the_diff</span> <span class="o">=</span> <span class="n">theta_guess</span> <span class="o">-</span> <span class="n">theta0</span>
+    <span class="k">return</span> <span class="n">the_diff</span></div>
+
+
+
+<div class="viewcode-block" id="thetaep_diff">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.thetaep_diff">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">thetaep_diff</span><span class="p">(</span><span class="n">Tguess</span><span class="p">,</span> <span class="n">thetaE0</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    use pseudo thetae (thetaep) for rootfinder</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Tguess : float</span>
+<span class="sd">        Trial temperature value (K).</span>
+<span class="sd">    ws0 : float</span>
+<span class="sd">        Initial saturated mixing ratio (kg/kg).</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    theDiff : float</span>
+<span class="sd">        The difference between the values of 'thetaEguess' and</span>
+<span class="sd">        'thetaE0'. This difference is then compared to the tolerance</span>
+<span class="sd">        allowed by brenth.</span>
+<span class="sd">        </span>
+<span class="sd">    """</span>
+    <span class="n">thetaes_guess</span> <span class="o">=</span> <span class="n">find_thetaep</span><span class="p">(</span><span class="n">Tguess</span><span class="p">,</span> <span class="n">Tguess</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+
+    <span class="c1">#when this result is small enough we're done</span>
+    <span class="n">the_diff</span> <span class="o">=</span> <span class="n">thetaes_guess</span> <span class="o">-</span> <span class="n">thetaE0</span>
+    <span class="k">return</span> <span class="n">the_diff</span></div>
+
+
+
+<div class="viewcode-block" id="tinvert_thetae">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.tinvert_thetae">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tinvert_thetae</span><span class="p">(</span><span class="n">thetaeVal</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    temp,rv,rl=tinvert_thetae(thetaeVal, rT, press)</span>
+
+<span class="sd">    Uses a rootfinder to determine the temperature for which the</span>
+<span class="sd">    pseudo equivilant potential temperature (thetaepress) is equal to the</span>
+<span class="sd">    equivilant potential temperature (thetae) of the parcel.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    thetaeVal : float</span>
+<span class="sd">        Thetae of parcel (K).</span>
+<span class="sd">    rT : float</span>
+<span class="sd">        Total water mixing ratio (kg/kg).</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure of parcel in (Pa).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    theTemp : float</span>
+<span class="sd">        Temperature for which thetaep equals the parcel thetae (K).</span>
+<span class="sd">    rv : float</span>
+<span class="sd">        Vapor mixing ratio of the parcel (kg/kg).</span>
+<span class="sd">    rl : float</span>
+<span class="sd">        liquid water mixing ratio of the parcel (kg/kg) at 'press'.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    IOError</span>
+<span class="sd">        If 'press' is larger than 100000 Pa.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+
+<span class="sd">    &gt;&gt;&gt; tinvert_thetae(300., 0.001, 8.e4)</span>
+<span class="sd">    (278.683729619619, 0.001, 0)</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">press</span> <span class="o">&gt;</span> <span class="mf">1.e5</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s1">'expecting pressure level less than 100000 Pa'</span><span class="p">)</span>
+    <span class="c1"># The temperature has to be somewhere between thetae</span>
+    <span class="c1"># (T at surface) and -40 deg. C (no ice).</span>
+    <span class="n">Tstart</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">Tc</span>
+    <span class="n">brackets</span> <span class="o">=</span> <span class="n">rf</span><span class="o">.</span><span class="n">find_interval</span><span class="p">(</span><span class="n">find_resid_thetae</span><span class="p">,</span> <span class="n">Tstart</span><span class="p">,</span> <span class="n">thetaeVal</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span>
+                                <span class="n">press</span><span class="p">)</span>
+    <span class="n">theTemp</span> <span class="o">=</span> <span class="n">rf</span><span class="o">.</span><span class="n">fzero</span><span class="p">(</span><span class="n">find_resid_thetae</span><span class="p">,</span> <span class="n">brackets</span><span class="p">,</span> <span class="n">thetaeVal</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="n">rv</span><span class="p">,</span> <span class="n">rl</span> <span class="o">=</span> <span class="n">find_rvrl</span><span class="p">(</span><span class="n">theTemp</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">theTemp</span><span class="p">,</span> <span class="n">rv</span><span class="p">,</span> <span class="n">rl</span></div>
+
+
+
+<div class="viewcode-block" id="find_resid_thetae">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_resid_thetae">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_resid_thetae</span><span class="p">(</span><span class="n">Tguess</span><span class="p">,</span> <span class="n">thetaeVal</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">   Calculate residual between target thetaeVal and guess to</span>
+<span class="sd">   rootfind temperature for constant thetae</span>
+<span class="sd">   </span>
+<span class="sd">   Parameters</span>
+<span class="sd">   ----------</span>
+<span class="sd">      </span>
+<span class="sd">   Tguess: float</span>
+<span class="sd">           (K) guess temperature from rootfinder </span>
+
+<span class="sd">   rsat:   float</span>
+<span class="sd">           (kg/kg) target saturation mixing ratio</span>
+<span class="sd">            </span>
+<span class="sd">   press:  float</span>
+<span class="sd">           (hPa) pressure level for rootfind</span>
+
+<span class="sd">   Returns</span>
+<span class="sd">   ------- </span>
+<span class="sd">   </span>
+<span class="sd">   residual: float</span>
+<span class="sd">             (kg/kg) differnce between target and guess rsat</span>
+
+<span class="sd">   References</span>
+<span class="sd">   ----------</span>
+<span class="sd">      </span>
+<span class="sd">   see thompkins 2.20</span>
+<span class="sd">   """</span>
+
+    <span class="n">rv</span><span class="p">,</span> <span class="n">rl</span> <span class="o">=</span> <span class="n">find_rvrl</span><span class="p">(</span><span class="n">Tguess</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="n">tdGuess</span> <span class="o">=</span> <span class="n">find_Td</span><span class="p">(</span><span class="n">rv</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="c1"># Iterate on Tguess until this function is</span>
+    <span class="c1"># zero to within tolerance.</span>
+    <span class="k">return</span> <span class="n">thetaeVal</span> <span class="o">-</span> <span class="n">find_thetaet</span><span class="p">(</span><span class="n">tdGuess</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">Tguess</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span></div>
+
+
+
+
+
+<div class="viewcode-block" id="find_buoy">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_buoy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_buoy</span><span class="p">(</span><span class="n">adia_Tv</span><span class="p">,</span> <span class="n">env_Tv</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculates the buoyancy given an parcel and environment virtural temp</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    adia_Tv : float</span>
+<span class="sd">        density temperature of the parcel (K)</span>
+<span class="sd">    env_Tv : float</span>
+<span class="sd">        density temperature of environment (K)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    buoy : float</span>
+<span class="sd">        buoyancy (m/s/s)</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+
+<span class="sd">    &gt;&gt;&gt; find_buoy(286.,285.)</span>
+<span class="sd">    0.03438596491228071</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    Thompkins equation 3.3</span>
+<span class="sd">    </span>
+<span class="sd">    """</span>
+    <span class="n">buoy</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">g0</span> <span class="o">*</span> <span class="p">(</span><span class="n">adia_Tv</span> <span class="o">-</span> <span class="n">env_Tv</span><span class="p">)</span> <span class="o">/</span> <span class="n">env_Tv</span>
+    <span class="k">return</span> <span class="n">buoy</span></div>
+
+
+
+<div class="viewcode-block" id="find_thetal">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_thetal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_thetal</span><span class="p">(</span><span class="n">press</span><span class="p">,</span> <span class="n">temp</span><span class="p">,</span> <span class="n">rt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculates the true equivalent potential temperature of an air</span>
+<span class="sd">    parcel assuming saturation</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    temp : float</span>
+<span class="sd">        Temperature (K).</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+<span class="sd">    rt : float</span>
+<span class="sd">       mixing ratio  (kg/kg</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----</span>
+<span class="sd">    thetal : float</span>
+<span class="sd">        liquid water potential temperature (K).</span>
+
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Empirical fit </span>
+
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    Emanuel 4.5.15 p. 121</span>
+
+<span class="sd">    """</span>
+    <span class="n">rsat</span> <span class="o">=</span> <span class="n">find_rsat</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="n">saturated</span> <span class="o">=</span> <span class="n">rt</span> <span class="o">&gt;</span> <span class="n">rsat</span>
+    <span class="k">if</span> <span class="n">saturated</span><span class="p">:</span>
+        <span class="n">rl</span> <span class="o">=</span> <span class="n">rt</span> <span class="o">-</span> <span class="n">rsat</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rl</span> <span class="o">=</span> <span class="mf">0.</span>
+    <span class="n">lv</span> <span class="o">=</span> <span class="n">find_lv</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">find_theta</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">press</span><span class="p">)</span>
+    <span class="n">thetal</span> <span class="o">=</span> <span class="n">theta</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">lv</span> <span class="o">*</span> <span class="n">rl</span> <span class="o">/</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">cpd</span> <span class="o">*</span> <span class="n">temp</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">thetal</span></div>
+
+
+
+<div class="viewcode-block" id="find_Td">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.find_Td">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_Td</span><span class="p">(</span><span class="n">rv</span><span class="p">,</span> <span class="n">press</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Calculates the due point temperature of an air parcel.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    rv : float</span>
+<span class="sd">        Mixing ratio (kg/kg).</span>
+<span class="sd">    press : float</span>
+<span class="sd">        Pressure (Pa).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    Td : float</span>
+<span class="sd">        Dew point temperature (K).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+
+<span class="sd">    &gt;&gt;&gt; find_Td(0.001, 8.e4)</span>
+<span class="sd">    253.39429263963504</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    Emanuel 4.4.14 p. 117</span>
+<span class="sd">    </span>
+<span class="sd">    """</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">rv</span> <span class="o">*</span> <span class="n">press</span> <span class="o">/</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">eps</span> <span class="o">+</span> <span class="n">rv</span><span class="p">)</span>
+    <span class="n">denom</span> <span class="o">=</span> <span class="p">(</span><span class="mf">17.67</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">e</span> <span class="o">/</span> <span class="mf">611.2</span><span class="p">))</span> <span class="o">-</span> <span class="mf">1.</span>
+    <span class="n">Td</span> <span class="o">=</span> <span class="mf">243.5</span> <span class="o">/</span> <span class="n">denom</span>
+    <span class="n">Td</span> <span class="o">=</span> <span class="n">Td</span> <span class="o">+</span> <span class="mf">273.15</span>
+    <span class="k">return</span> <span class="n">Td</span></div>
+
+
+
+<div class="viewcode-block" id="test_therm">
+<a class="viewcode-back" href="../../../full_listing.html#cloudlib.thermo.thermfn.test_therm">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_therm</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">   execute unit tests for thermfn</span>
+<span class="sd">   """</span>
+    <span class="n">Tlcl</span><span class="p">,</span> <span class="n">plcl</span> <span class="o">=</span> <span class="n">find_lcl</span><span class="p">(</span><span class="mf">280.</span><span class="p">,</span> <span class="mf">300.</span><span class="p">,</span> <span class="mf">8.e4</span><span class="p">)</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">Tlcl</span><span class="p">,</span> <span class="mf">275.7625</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">plcl</span><span class="p">,</span> <span class="mf">59518.928</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span>
+        <span class="n">find_thetaep</span><span class="p">(</span><span class="mf">280.</span><span class="p">,</span> <span class="mf">300.</span><span class="p">,</span> <span class="mf">8.e4</span><span class="p">),</span>
+        <span class="mf">344.998307</span><span class="p">,</span>
+        <span class="n">decimal</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Parcel is unsaturated.</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span>
+        <span class="n">find_thetaep</span><span class="p">(</span><span class="mf">300.</span><span class="p">,</span> <span class="mf">280.</span><span class="p">,</span> <span class="mf">8.e4</span><span class="p">),</span>
+        <span class="mf">321.53029</span><span class="p">,</span>
+        <span class="n">decimal</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Parcel is saturated.</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">find_esat</span><span class="p">(</span><span class="mf">300.</span><span class="p">),</span> <span class="mf">3534.51966</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">find_thetaes</span><span class="p">(</span><span class="mf">300.</span><span class="p">,</span> <span class="mf">8.e4</span><span class="p">),</span> <span class="mf">399.53931</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">find_esat</span><span class="p">([</span><span class="mf">300.</span><span class="p">,</span> <span class="mf">310.</span><span class="p">]),</span> <span class="p">[</span><span class="mf">3534.51966</span><span class="p">,</span> <span class="mf">6235.53218</span><span class="p">])</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">find_Tmoist</span><span class="p">(</span><span class="mf">300.</span><span class="p">,</span> <span class="mf">8.e4</span><span class="p">),</span> <span class="mf">271.063785</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">find_Tmoist</span><span class="p">(</span><span class="mf">330.</span><span class="p">,</span> <span class="mf">8.e4</span><span class="p">),</span> <span class="mf">283.722658</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">find_Tv</span><span class="p">(</span><span class="mf">300.</span><span class="p">,</span> <span class="mf">1.e-2</span><span class="p">),</span> <span class="mf">301.866</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">ntest</span><span class="o">.</span><span class="n">assert_almost_equal</span><span class="p">(</span><span class="n">find_Tv</span><span class="p">(</span><span class="mf">280.</span><span class="p">,</span> <span class="mf">1.e-2</span><span class="p">,</span> <span class="mf">1.e-3</span><span class="p">),</span> <span class="mf">281.4616</span><span class="p">,</span> <span class="n">decimal</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">set_printoptions</span><span class="p">(</span><span class="n">precision</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">test_therm</span><span class="p">()</span>
+    <span class="n">doctest</span><span class="o">.</span><span class="n">testmod</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Phil Austin.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
