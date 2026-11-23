@@ -144,8 +144,7 @@ def parse_data(data_text):
             theLine = all_lines[count]
         header_names=all_lines[count].lower().split()
     except IndexError:
-        print("no column header line found in sounding")
-        sys.exit(1)
+        raise RuntimeError("no column header line found in sounding")
     count += 1  #go to unit names
     unit_names=all_lines[count].split()
     count+=2  #skip a row of ------
@@ -160,9 +159,7 @@ def parse_data(data_text):
                     es = find_esat(dataFields[3] + 273.15)*0.01  #get vapor pressure from dewpoint in hPa
                     dataFields[5] = (con.eps*es/(dataFields[0] - es))*1.e3   #g/kg
                 except ValueError:
-                    print('trouble converting dataFields to float')
-                    print(dataFields)
-                    sys.exit(1)
+                    raise RuntimeError(f'trouble converting dataFields to float: {dataFields}')
                 data_list.append(dataFields)
                 #
                 # get the next line
@@ -215,11 +212,113 @@ def make_frames(html_doc):
     
     return attr_dict,sounding_dict
     
+#
+# the Wyoming site retired http://weather.uwyo.edu/cgi-bin/sounding in 2025;
+# the replacement returns one sounding per request (404 if none at that time)
+#
+WYOMING_URL = ("https://weather.uwyo.edu/wsgi/sounding?"
+               "datetime={time}&id={station}&type=TEXT:LIST")
+
+REQUEST_PAUSE = 1.0     # seconds between requests -- the site rate limits
+RETRY_WAITS = (5, 10, 20, 40, 60, 120)   # backoff after a 503 "Too Busy"
+
+def get_with_retry(url):
+    """
+    GET url, pausing between requests and backing off when the
+    Wyoming server answers 503 Too Busy or drops the connection.
+    The server closes the connection after each reply, so no Session is used.
+    """
+    time.sleep(REQUEST_PAUSE)
+    for wait in RETRY_WAITS + (None,):
+        try:
+            response = requests.get(url, timeout=120)
+            if response.status_code != 503:
+                return response
+            problem = "server busy (503)"
+        except (requests.ConnectionError, requests.Timeout) as err:
+            if wait is None:
+                raise
+            problem = f"connection problem ({type(err).__name__})"
+        if wait is None:
+            return response
+        print(f"wyoming {problem}, retrying in {wait} s")
+        time.sleep(wait)
+
+def sounding_times(input_dict):
+    """
+    Turn the year/month/start/stop fields of input_dict into a list of
+    utc datetimes to request.  start and stop are 'DDHH' strings
+    (inclusive); hours defaults to the synoptic times (0, 12) and can
+    be overridden with an optional 'hours' entry, e.g. hours=(0,6,12,18)
+    """
+    year=int(input_dict['year'])
+    month=int(input_dict['month'])
+    def to_time(ddhh):
+        return datetime.datetime(year,month,int(ddhh[:2]),int(ddhh[2:4]),tzinfo=tz.utc)
+    start=to_time(input_dict['start'])
+    stop=to_time(input_dict['stop'])
+    hours=set(int(h) for h in input_dict.get('hours',(0,12)))
+    times=[]
+    the_time=start.replace(hour=0)
+    while the_time <= stop:
+        if the_time >= start and the_time.hour in hours:
+            times.append(the_time)
+        the_time += datetime.timedelta(hours=1)
+    return times
+
+def make_frame(html_doc, the_time):
+    """
+    turn a single-sounding page from the wyoming wsgi site into a dataframe
+
+    Parameters
+    ----------
+
+    html_doc : str
+        page returned by WYOMING_URL
+
+    the_time : datetime
+        sounding time (used for the header)
+
+    Returns
+    -------
+
+    attr_dict : dict
+        dictionary with ['header', 'site_id','longitude','latitude', 'elevation', 'units']
+
+    df : DataFrame
+        sounding with the same columns as the old cgi-bin pages
+        (wind speed sped in m/s is converted to sknt in knots)
+    """
+    soup=BeautifulSoup(html_doc,'html.parser')
+    pre=soup.find('pre')
+    if pre is None:
+        raise RuntimeError(f"no sounding table found for {the_time}")
+    df,units=parse_data(pre.text)
+    if 'sped' in df.columns:
+        idx=list(df.columns).index('sped')
+        df['sped']=np.round(df['sped']*3600./1852.)   # m/s -> knots
+        df=df.rename(columns={'sped':'sknt'})
+        units[idx]='knot'
+    indices={}
+    for row in soup.find_all('tr'):
+        cells=[td.text.strip() for td in row.find_all('td')]
+        if len(cells) >= 3:
+            indices[cells[0]]=cells[2]
+    h1=soup.find('h1').text
+    site_id=re.search(r'Station\s+(\S+)',h1).group(1)
+    h3=soup.find('h3')
+    name=' '.join(h3.text.split()) if h3 else ''
+    header=f"{site_id} {name} Observations at {the_time:%HZ %d %b %Y}"
+    attr_dict=dict(units=';'.join(units),site_id=site_id,
+                   latitude=float(indices['SLAT']),longitude=float(indices['SLON']),
+                   elevation=float(indices['SELV']),header=header)
+    return attr_dict,df
+
 def write_soundings(input_dict,outputdir):
     """
-    function to test downloading a sounding
-    from http://weather.uwyo.edu/cgi-bin/sounding and
-    creating an folder soundings and metadata
+    function to download soundings from the Wyoming upper air site
+    (https://weather.uwyo.edu/wsgi/sounding) and write them, plus
+    a metadata.json file, to a folder
 
     Parameters
     ----------
@@ -228,6 +327,9 @@ def write_soundings(input_dict,outputdir):
        dictionary with fields needed to specify the sounding
        i.e.
        dict(region='naconf',year='2017',month='7',start='0100',stop='1800',station='72451')
+       start and stop are DDHH (inclusive).  region is no longer needed by the
+       site but is kept for compatibility.  An optional hours=(0,6,12,18) entry
+       changes which hours are requested (default 0 and 12 UTC)
 
     outputdir: string
        path to directory that will hold the csv sounding files
@@ -240,31 +342,23 @@ def write_soundings(input_dict,outputdir):
     """
 
     print(f"{input_dict=}")
-    url_template=("http://weather.uwyo.edu/cgi-bin/sounding?"
-              "region={region:s}"
-              "&TYPE=TEXT%3ALIST"
-              "&YEAR={year:s}"
-              "&MONTH={month:s}"
-              "&FROM={start:s}"
-              "&TO={stop:s}"
-              "&STNM={station:s}")
-    url=url_template.format_map(input_dict)
-    do_web = True
-    backup_file='backup.txt'
-    if do_web:
-        html_doc = requests.get(url).text
-        print(f"{len(html_doc)=} from write_soundings")
-        with open(backup_file,'w') as f:
-            f.write(html_doc)
-        if len(html_doc) < 2000:
-            print('debug: short html_doc, something went wrong:',html_doc)
-            sys.exit(1)
-    else:
-        with open(backup_file,'r') as f:
-            html_doc=f.read()
-
-    attr_dict,sounding_dict = make_frames(html_doc)
-    attr_dict['history']="written by test_requests.py"
+    sounding_dict=OrderedDict()
+    attr_dict=None
+    for the_time in sounding_times(input_dict):
+        url=WYOMING_URL.format(time=the_time.strftime("%Y-%m-%d %H:%M:%S"),
+                               station=input_dict['station'])
+        response = get_with_retry(url)
+        if response.status_code == 404:
+            continue   # no sounding at this time
+        response.raise_for_status()
+        attrs, df = make_frame(response.text, the_time)
+        sounding_dict[the_time]=df
+        if attr_dict is None:
+            attr_dict = attrs
+    if attr_dict is None:
+        raise RuntimeError(f"no soundings found at {WYOMING_URL} for {input_dict}")
+    print(f"downloaded {len(sounding_dict)} soundings")
+    attr_dict['history']="written by cloudlib.soundings.wyominglib.write_soundings"
     key_list=['header', 'site_id','longitude','latitude', 'elevation', 'units','history']
     #pdb.set_trace()
     folder = Path(outputdir)

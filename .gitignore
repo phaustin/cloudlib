@@ -1,2 +1,8 @@
 *pycache*
 /_build/
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+
+src/cloudlib/_version.py
+output/

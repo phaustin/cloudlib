@@ -1,0 +1,67 @@
+# rattler-build recipe: pixi run build-conda
+# builds one noarch package that installs on linux, osx and win
+context:
+  name: cloudlib
+  version: "0.1.0"        # set from the git v* tag: sync_recipe_version
+  python_min: "3.10"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  noarch: python
+  script:
+    env:
+      # hatch-vcs normally reads the version from git; pin it to the recipe
+      SETUPTOOLS_SCM_PRETEND_VERSION: ${{ version }}
+    content: ${{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+
+requirements:
+  host:
+    - python ${{ python_min }}.*
+    - pip
+    - hatchling
+    - hatch-vcs
+  run:
+    - python >=${{ python_min }}
+    - numpy
+    - scipy
+    - matplotlib-base
+    - pandas
+    - pytz
+    - requests
+    - beautifulsoup4
+    - gen_utils >=0.3.1     # from the eoas_ubc channel
+
+tests:
+  - python:
+      imports:
+        - cloudlib
+        - cloudlib.thermo.thermfn
+        - cloudlib.thermo.rootfinder
+        - cloudlib.dropgrow.drop_grow
+        - cloudlib.dropgrow.aerolib
+        - cloudlib.skewT.skewlib
+        - cloudlib.skewT.fullskew
+        - cloudlib.soundings.wyominglib
+      pip_check: true
+      python_version: ${{ python_min }}.*
+  - files:
+      source:
+        - tests/
+    requirements:
+      run:
+        - pytest
+    script:
+      - pytest tests -q
+
+about:
+  summary: atsc405 code
+  license: BSD-3-Clause
+  license_file: LICENSE
+  homepage: https://github.com/phaustin/cloudlib

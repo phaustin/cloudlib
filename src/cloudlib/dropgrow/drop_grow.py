@@ -3,7 +3,7 @@ calculate the grow history of droplet categories in a constant velocity updraft
 """
 from .aerolib import lognormal,create_koehler
 import numpy as np
-from ..utils.helper_funs import make_tuple, find_centers
+from gen_utils.utils.helper_funs import make_tuple, find_centers
 from ..thermo.rootfinder import find_interval, fzero
 from ..thermo.constants import constants as c
 from ..thermo.thermfn import find_lv,find_esat
